@@ -15,6 +15,8 @@ import cookieSession from "cookie-session";
 import HTTP_STATUS from "http-status-codes";
 import "express-async-errors";
 
+const SERVER_PORT = 8000;
+
 export class ChatribeServer {
   private app: Application;
 
@@ -63,9 +65,22 @@ export class ChatribeServer {
 
   private loggerMiddleware(app: Application): void {}
 
-  private startServer(app: Application): void {}
+  private async startServer(app: Application): Promise<void> {
+    try {
+      const httpServer: http.Server = new http.Server(app);
+      this.startHttpServer(httpServer);
+    } catch (error) {
+      // TODO: Change to logging library later
+      console.log(error);
+    }
+  }
 
   private createSocketIO(httpServer: http.Server): void {}
 
-  private startHttpServer(httpServer: http.Server): void {}
+  private startHttpServer(httpServer: http.Server): void {
+    httpServer.listen(SERVER_PORT, () => {
+      // TODO: Change to logging library later
+      console.log(`Server running on port ${SERVER_PORT}`);
+    });
+  }
 }
