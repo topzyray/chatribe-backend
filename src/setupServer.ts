@@ -1,25 +1,22 @@
-import {
-  Application,
-  json,
-  urlencoded,
-  Response,
-  Request,
-  NextFunction,
-} from "express";
-import http from "http";
-import cors from "cors";
-import helmet from "helmet";
-import hpp from "hpp";
-import compression from "compression";
-import cookieSession from "cookie-session";
-import { Server } from "socket.io";
-import { createClient } from "redis";
-import { createAdapter } from "@socket.io/redis-adapter";
-import HTTP_STATUS from "http-status-codes";
-import "express-async-errors";
-import { config } from "./config";
+import { Application, json, urlencoded, Response, Request, NextFunction } from 'express';
+import http from 'http';
+import cors from 'cors';
+import helmet from 'helmet';
+import hpp from 'hpp';
+import compression from 'compression';
+import cookieSession from 'cookie-session';
+import { Server } from 'socket.io';
+import { createClient } from 'redis';
+import { createAdapter } from '@socket.io/redis-adapter';
+import HTTP_STATUS from 'http-status-codes';
+import Logger from 'bunyan';
+import 'express-async-errors';
+import { config } from './config';
+import applicationRoute from './routes';
+import { CustomError, IErrorResponse } from './shared/globals/helpers/error-handler';
 
-const SERVER_PORT = config.NODE_ENV === "production" ? 443 : 8000;
+const SERVER_PORT = config.NODE_ENV === 'production' ? 443 : 8000;
+const log: Logger = config.createLogger('server');
 
 export class ChatribeServer {
   private app: Application;
@@ -39,10 +36,10 @@ export class ChatribeServer {
   private securityMiddleware(app: Application): void {
     app.use(
       cookieSession({
-        name: "session",
+        name: 'session',
         keys: [config.SECRET_KEY_ONE, config.SECRET_KEY_TWO],
         maxAge: 24 * 7 * 3600000,
-        secure: config.NODE_ENV !== "development",
+        secure: config.NODE_ENV !== 'development'
       })
     );
     app.use(hpp());
@@ -52,20 +49,36 @@ export class ChatribeServer {
         origin: config.CLIENT_URL,
         credentials: true,
         optionsSuccessStatus: 200,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
       })
     );
   }
 
   private standardMiddleware(app: Application): void {
     app.use(compression());
-    app.use(json({ limit: "50mb" }));
+    app.use(json({ limit: '50mb' }));
     app.use(urlencoded({ extended: true }));
   }
 
-  private routeMiddleware(app: Application): void {}
+  private routeMiddleware(app: Application): void {
+    applicationRoute(app);
+  }
 
-  private globalErrorHandler(app: Application): void {}
+  private globalErrorHandler(app: Application): void {
+    app.all('*', (req: Request, res: Response) => {
+      res.status(HTTP_STATUS.NOT_FOUND).json({ message: `${req.originalUrl} not found` });
+    });
+
+    app.use((error: IErrorResponse, _req: Request, res: Response, next: NextFunction) => {
+      log.error(error);
+      if (error instanceof CustomError) {
+        res.status(error.statusCode).json(error.serializeErrors());
+        return;
+      }
+
+      next();
+    });
+  }
 
   private loggerMiddleware(app: Application): void {}
 
@@ -76,8 +89,7 @@ export class ChatribeServer {
       this.startHttpServer(httpServer);
       this.socketIOConnections(socketIO);
     } catch (error) {
-      // TODO: Change to logging library later
-      console.log(error);
+      log.error(error);
     }
   }
 
@@ -85,8 +97,8 @@ export class ChatribeServer {
     const io: Server = new Server(httpServer, {
       cors: {
         origin: config.CLIENT_URL,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      },
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+      }
     });
 
     const pubClient = createClient({ url: config.REDIS_HOST });
@@ -98,11 +110,9 @@ export class ChatribeServer {
   }
 
   private startHttpServer(httpServer: http.Server): void {
-    // TODO: Change to logging library later
-    console.log(`Server has started with ${process.pid}`);
+    log.info(`Server has started with ${process.pid}`);
     httpServer.listen(SERVER_PORT, () => {
-      // TODO: Change to logging library later
-      console.log(`Server running on port ${SERVER_PORT}`);
+      log.info(`Server running on port ${SERVER_PORT}`);
     });
   }
 
