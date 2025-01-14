@@ -11,9 +11,9 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import HTTP_STATUS from 'http-status-codes';
 import Logger from 'bunyan';
 import 'express-async-errors';
-import { config } from './config';
-import applicationRoute from './routes';
-import { CustomError, IErrorResponse } from './shared/globals/helpers/error-handler';
+import { config } from '@root/config';
+import applicationRoute from '@root/routes';
+import { CustomError, IErrorResponse } from '@global/helpers/error-handler';
 
 const SERVER_PORT = config.NODE_ENV === 'production' ? 443 : 8000;
 const log: Logger = config.createLogger('server');
@@ -116,5 +116,7 @@ export class ChatribeServer {
     });
   }
 
-  private socketIOConnections(io: Server): void {}
+  private socketIOConnections(io: Server): void {
+    log.info('Socket connections');
+  }
 }
